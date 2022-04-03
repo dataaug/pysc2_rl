@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 from torch.nn import init
 from torch.nn.utils import weight_norm
-from torch.autograd import Variable
+# from torch.autograd import Variable
 
 
 def init_weights(model):
@@ -130,12 +130,11 @@ class FullyConv(torch.nn.Module):
         x_s = F.relu(self.sconv1(screen_vb))
         x_s = F.relu(self.sconv2(x_s))
 
-        x_i = Variable(
-            info_vb.data.repeat(
+        x_i = info_vb.data.repeat(
                 math.ceil(x_s.shape[2] * x_s.shape[3] / info_vb.shape[0])
             ).resize_(
                 x_s.shape[2], x_s.shape[3]
-            )
+        x_i.requires_grad=True
         )  # transform info vector into 2d matrix with shape (s, s) filled with repeat values
         x_i = x_i.unsqueeze(0).unsqueeze(0)  # shape (1, 1, s, s)
         x_state = torch.cat((x_m, x_s, x_i), dim=1)  # concat along channel dimension

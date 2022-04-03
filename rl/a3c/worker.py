@@ -97,9 +97,9 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
 
                 # sample and select action
                 spatial_action_ts = spatial_policy_vb.multinomial(1).data
-                spatial_action_ts.requires_grad=True
+                # spatial_action_ts.requires_grad=True
                 non_spatial_action_ts = non_spatial_policy_vb.multinomial(1).data
-                non_spatial_action_ts.requires_grad=True
+                # non_spatial_action_ts.requires_grad=True
                 sc2_action = game_intf.postprocess_action(
                     non_spatial_action_ts.cpu().numpy(),
                     spatial_action_ts.cpu().numpy())
@@ -172,6 +172,7 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
             policy_loss_vb = 0.
             value_loss_vb = 0.
             gae_ts = cuda(torch.zeros(1, 1), gpu_id)
+            gae_ts.requires_grad = True
             for i in reversed(range(len(rewards))):
                 R_vb = args.gamma * R_vb + rewards[i]
                 advantage_vb = R_vb - value_vbs[i]
@@ -184,7 +185,7 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
                 tderr_ts = rewards[i] + args.gamma * value_vbs[i+1].data - value_vbs[i].data
                 gae_ts = gae_ts * args.gamma * args.tau + tderr_ts
 
-                gae_ts.requires_grad = True
+                
 
                 # Try to do gradient ascent on the expected discounted reward
                 # The gradient of the expected discounted reward is the gradient

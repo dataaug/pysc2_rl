@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch.autograd import Variable
 from rl import model
 
 
@@ -25,12 +24,14 @@ class ModelTest(unittest.TestCase):
             num_action=self.num_action)
 
     def testMaskUnavailableActions(self):
-        logit = Variable(torch.rand(1, self.num_action))
+        logit = torch.rand(1, self.num_action)
+        assert logit.requires_grad==True
         policy_vb = F.softmax(logit, dim=1)
 
         available_action = np.zeros(self.num_action, dtype=self.dtype)
         available_action[[0, 1, 6]] = 1
-        available_action_vb = Variable(torch.from_numpy(available_action))
+        available_action_vb = torch.from_numpy(available_action)
+        available_action_vb.requires_grad=True
 
         masked_policy_vb = self.fully_conv._mask_unavailable_actions(
             policy_vb, available_action_vb)
