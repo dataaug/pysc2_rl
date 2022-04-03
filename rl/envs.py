@@ -10,7 +10,7 @@ from pysc2.lib import actions
 
 sc2_f_path = path.abspath(path.join(path.dirname(__file__), "..", "configs", "sc2_config.yml"))
 with open(sc2_f_path, 'r') as ymlfile:
-    sc2_cfg = yaml.load(ymlfile)
+    sc2_cfg = yaml.safe_load(ymlfile)
 
 
 # TODO: update README.md for adding random seed for game env
@@ -30,8 +30,8 @@ def create_sc2_minigame_env(map_name, mode, visualize=False):
         step_mul=sc2_cfg[mode]['step_mul'],
         screen_size_px=(sc2_cfg[mode]['resl'],) * 2,
         minimap_size_px=(sc2_cfg[mode]['resl'],) * 2,
-        visualize=visualize,
-        random_seed=env_seed)
+        visualize=visualize,)
+        # random_seed=env_seed)
     return env
 
 

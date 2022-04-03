@@ -7,7 +7,7 @@ from rl.envs import GameInterfaceHandler
 from rl.model import FullyConv
 from rl.a3c.summary import Summary
 from rl.utils.gpu import cuda
-
+import os
 
 def ensure_shared_grads(model, shared_model, gpu_id):
     """ ensure proper initialization of global grad"""
@@ -83,21 +83,23 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
 
             # rollout, step forward n steps
             for step in range(args.num_forward_steps):
-                minimap_vb = Variable(
-                    cuda(torch.from_numpy(game_intf.get_minimap(state.observation)), gpu_id))
-                screen_vb = Variable(
-                    cuda(torch.from_numpy(game_intf.get_screen(state.observation)), gpu_id))
-                info_vb = Variable(
-                    cuda(torch.from_numpy(game_intf.get_info(state.observation)), gpu_id))
-                valid_action_vb = Variable(
-                    cuda(torch.from_numpy(game_intf.get_available_actions(state.observation)), gpu_id))
+                minimap_vb = cuda(torch.from_numpy(game_intf.get_minimap(state.observation)), gpu_id)
+                minimap_vb.requires_grad=True
+                screen_vb = cuda(torch.from_numpy(game_intf.get_screen(state.observation)), gpu_id)
+                screen_vb.requires_grad=True
+                info_vb =  cuda(torch.from_numpy(game_intf.get_info(state.observation)), gpu_id)
+                info_vb.requires_grad=True
+                valid_action_vb = cuda(torch.from_numpy(game_intf.get_available_actions(state.observation)), gpu_id)
+                valid_action_vb.requires_grad=True
                 # TODO: if args.lstm, do model training with lstm
                 value_vb, spatial_policy_vb, non_spatial_policy_vb, lstm_hidden_vb = model(
                     minimap_vb, screen_vb, info_vb, valid_action_vb, None)
 
                 # sample and select action
                 spatial_action_ts = spatial_policy_vb.multinomial(1).data
+                spatial_action_ts.requires_grad=True
                 non_spatial_action_ts = non_spatial_policy_vb.multinomial(1).data
+                non_spatial_action_ts.requires_grad=True
                 sc2_action = game_intf.postprocess_action(
                     non_spatial_action_ts.cpu().numpy(),
                     spatial_action_ts.cpu().numpy())
@@ -124,9 +126,9 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
 
                 # For a given state and action, compute the log of the policy at
                 # that action for that state.
-                spatial_policy_log_for_action_vb = torch.log(spatial_policy_vb.gather(1, Variable(spatial_action_ts)))
+                spatial_policy_log_for_action_vb = torch.log(spatial_policy_vb.gather(1, spatial_action_ts))
                 spatial_policy_log_for_action_vb *= select_spatial_act  # set to 0 if non-spatial action is chosen
-                non_spatial_policy_log_for_action_vb = torch.log(non_spatial_policy_vb.gather(1, Variable(non_spatial_action_ts)))
+                non_spatial_policy_log_for_action_vb = torch.log(non_spatial_policy_vb.gather(1, non_spatial_action_ts))
 
                 state = env.step([sc2_action])[0]  # single player
                 reward = np.asscalar(state.reward)
@@ -152,18 +154,19 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
             if not episode_done:
                 # bootstrap from last state
                 # TODO: if args.lstm
-                minimap_vb = Variable(
-                    cuda(torch.from_numpy(game_intf.get_minimap(state.observation)), gpu_id))
-                screen_vb = Variable(
-                    cuda(torch.from_numpy(game_intf.get_screen(state.observation)), gpu_id))
-                info_vb = Variable(
-                    cuda(torch.from_numpy(game_intf.get_info(state.observation)), gpu_id))
-                valid_action_vb = Variable(
-                    cuda(torch.from_numpy(game_intf.get_available_actions(state.observation)), gpu_id))
+                minimap_vb = cuda(torch.from_numpy(game_intf.get_minimap(state.observation)), gpu_id)
+                minimap_vb.requires_grad=True
+                screen_vb =  cuda(torch.from_numpy(game_intf.get_screen(state.observation)), gpu_id)
+                screen_vb.requires_grad=True
+                info_vb = cuda(torch.from_numpy(game_intf.get_info(state.observation)), gpu_id)
+                info_vb.requires_grad=True
+                valid_action_vb = cuda(torch.from_numpy(game_intf.get_available_actions(state.observation)), gpu_id)
+                valid_action_vb.requires_grad=True
                 value_vb, _, _, _ = model(minimap_vb, screen_vb, info_vb, valid_action_vb, None)
                 R_ts = value_vb.data
 
-            R_vb = Variable(cuda(R_ts, gpu_id))
+            R_vb = cuda(R_ts, gpu_id)
+            R_vb.requires_grad=True
             value_vbs.append(R_vb)
 
             policy_loss_vb = 0.
@@ -181,6 +184,8 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
                 tderr_ts = rewards[i] + args.gamma * value_vbs[i+1].data - value_vbs[i].data
                 gae_ts = gae_ts * args.gamma * args.tau + tderr_ts
 
+                gae_ts.requires_grad = True
+
                 # Try to do gradient ascent on the expected discounted reward
                 # The gradient of the expected discounted reward is the gradient
                 # of log pi * (R - estimated V), where R is the sampled reward
@@ -188,7 +193,7 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
                 # Since we want to max this value, we define policy loss as negative
                 # NOTE: the negative entropy term  encourages exploration
                 policy_log_for_action_vb = spatial_policy_log_for_action_vbs[i] + non_spatial_policy_log_for_action_vbs[i]
-                policy_loss_vb += -(policy_log_for_action_vb * Variable(gae_ts) + args.entropy_weight * entropies[i])
+                policy_loss_vb += -(policy_log_for_action_vb * gae_ts + args.entropy_weight * entropies[i])
 
             optimizer.zero_grad()
 
