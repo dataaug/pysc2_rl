@@ -14,6 +14,10 @@ def monitor_fn(rank, args, shared_model, global_episode_counter, summary_queue):
     # Keep monitor cpu only
     torch.manual_seed(args.seed + rank)
     env = create_sc2_minigame_env(args.map_name, args.mode)
+    # print('env init finished...')
+
+    # # time.sleep(20)
+    # # exit()
     game_intf = GameInterfaceHandler(args.mode)
 
     with env:
@@ -61,6 +65,7 @@ def monitor_fn(rank, args, shared_model, global_episode_counter, summary_queue):
 
             state = env.step([sc2_action])[0]  # single player
             reward = np.asscalar(state.reward)
+            # print('reward', reward)
             terminal = state.last()
 
             episode_done = terminal or episode_length >= args.max_episode_length
@@ -87,4 +92,5 @@ def monitor_fn(rank, args, shared_model, global_episode_counter, summary_queue):
                 reward_sum = 0
                 episode_length = 0
                 state = env.reset()[0]  # single player
-                time.sleep(5)
+                # print('episode done')
+                #time.sleep(5) #不设置等待时长了

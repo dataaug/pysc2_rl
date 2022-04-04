@@ -1,6 +1,5 @@
 import numpy as np
 import torch
-from torch.autograd import Variable
 
 from rl.envs import create_sc2_minigame_env
 from rl.envs import GameInterfaceHandler
@@ -39,13 +38,17 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
     game_intf = GameInterfaceHandler(args.mode)
 
     with env:
+        print('worker model init...')
         model = FullyConv(
             game_intf.minimap_channels,
             game_intf.screen_channels,
             game_intf.screen_resolution,
             game_intf.num_action,
             args.lstm)
+        print('worker model init finised')
         cuda(model, gpu_id)
+        print('worker model to gpu finished')
+        
         model.train()
 
         state = env.reset()[0]  # state as TimeStep object from single player
@@ -56,6 +59,7 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
 
         # TODO: verify stop condition
         while True:
+            # print('episode now')
             if 0 < args.max_k_episode * 1000 <= global_episode_counter.value:
                 break
 
@@ -84,13 +88,13 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
             # rollout, step forward n steps
             for step in range(args.num_forward_steps):
                 minimap_vb = cuda(torch.from_numpy(game_intf.get_minimap(state.observation)), gpu_id)
-                minimap_vb.requires_grad=True
+                # minimap_vb.requires_grad=True
                 screen_vb = cuda(torch.from_numpy(game_intf.get_screen(state.observation)), gpu_id)
-                screen_vb.requires_grad=True
+                # screen_vb.requires_grad=True
                 info_vb =  cuda(torch.from_numpy(game_intf.get_info(state.observation)), gpu_id)
-                info_vb.requires_grad=True
+                # info_vb.requires_grad=True
                 valid_action_vb = cuda(torch.from_numpy(game_intf.get_available_actions(state.observation)), gpu_id)
-                valid_action_vb.requires_grad=True
+                # valid_action_vb.requires_grad=True
                 # TODO: if args.lstm, do model training with lstm
                 value_vb, spatial_policy_vb, non_spatial_policy_vb, lstm_hidden_vb = model(
                     minimap_vb, screen_vb, info_vb, valid_action_vb, None)
@@ -155,24 +159,24 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
                 # bootstrap from last state
                 # TODO: if args.lstm
                 minimap_vb = cuda(torch.from_numpy(game_intf.get_minimap(state.observation)), gpu_id)
-                minimap_vb.requires_grad=True
+                # minimap_vb.requires_grad=True
                 screen_vb =  cuda(torch.from_numpy(game_intf.get_screen(state.observation)), gpu_id)
-                screen_vb.requires_grad=True
+                # screen_vb.requires_grad=True
                 info_vb = cuda(torch.from_numpy(game_intf.get_info(state.observation)), gpu_id)
-                info_vb.requires_grad=True
+                # info_vb.requires_grad=True
                 valid_action_vb = cuda(torch.from_numpy(game_intf.get_available_actions(state.observation)), gpu_id)
-                valid_action_vb.requires_grad=True
+                # valid_action_vb.requires_grad=True
                 value_vb, _, _, _ = model(minimap_vb, screen_vb, info_vb, valid_action_vb, None)
                 R_ts = value_vb.data
 
             R_vb = cuda(R_ts, gpu_id)
-            R_vb.requires_grad=True
+            # R_vb.requires_grad=True
             value_vbs.append(R_vb)
 
             policy_loss_vb = 0.
             value_loss_vb = 0.
             gae_ts = cuda(torch.zeros(1, 1), gpu_id)
-            gae_ts.requires_grad = True
+            # gae_ts.requires_grad = True
             for i in reversed(range(len(rewards))):
                 R_vb = args.gamma * R_vb + rewards[i]
                 advantage_vb = R_vb - value_vbs[i]
@@ -207,6 +211,7 @@ def worker_fn(rank, args, shared_model, global_episode_counter, summary_queue, o
 
             optimizer.step()
             local_update_count += 1
+            continue
 
             # log scalar stats
             if summary_queue is not None and local_update_count % summary_iters == 0:

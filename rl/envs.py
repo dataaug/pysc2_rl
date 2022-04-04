@@ -31,6 +31,8 @@ def create_sc2_minigame_env(map_name, mode, visualize=False):
         screen_size_px=(sc2_cfg[mode]['resl'],) * 2,
         minimap_size_px=(sc2_cfg[mode]['resl'],) * 2,
         visualize=visualize,)
+        # save_replay_episodes = 1,
+        # replay_dir = 'C:\\Codes\\pysc2-rl-mini\\output\\replays')
         # random_seed=env_seed)
     return env
 

@@ -56,16 +56,24 @@ def main(args):
 
     global_episode_counter = mp.Value('i', init_episode_counter_val)
 
+    train_mode = 'a3c'
     # each worker_thread creates its own environment and trains agents
-    for rank in range(args.num_processes):
-        # only write summaries in one of the workers, since they are identical
-        worker_summary_queue = summary_queue if rank == 0 else None
-        worker_thread = mp.Process(
-            target=worker_fn, args=(rank, args, shared_model, global_episode_counter, worker_summary_queue, optimizer))
-        worker_thread.daemon = True
-        worker_thread.start()
-        processes.append(worker_thread)
-        time.sleep(2)
+    if train_mode == 'a3c':
+        for rank in range(args.num_processes):
+            # only write summaries in one of the workers, since they are identical
+            worker_summary_queue = summary_queue if rank == 0 else None
+
+            worker_thread = mp.Process(
+                target=worker_fn, args=(rank, args, shared_model, global_episode_counter, worker_summary_queue, optimizer))
+            worker_thread.daemon = True
+            worker_thread.start()
+            processes.append(worker_thread)
+            time.sleep(2)
+    else: # 伪a2c 训练方式
+        print('start worker')
+        worker_summary_queue = summary_queue
+        rank = 0
+        worker_fn(rank, args, shared_model, global_episode_counter, worker_summary_queue, optimizer)
 
     # start a thread for policy evaluation
     monitor_thread = mp.Process(

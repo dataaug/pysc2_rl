@@ -77,3 +77,10 @@ pytorch reinforcement learning
 pysc2 integratioin
 - [pysc2-agents](https://github.com/xhujoy/pysc2-agents) - pysc2 A3C agent with FullyConv model and epsilon greedy exploration by Tensorflow
 - [pysc2-rl-agents](https://github.com/simonmeister/pysc2-rl-agents) - pysc2 A2C agent with FullyConv model by Tensorflow
+
+
+## Conda 安装 windows环境 （测试机器3060ti）
+conda create -n hyt_sc2 python=3.7
+conda install pytorch==1.7.0 torchvision==0.8.0 torchaudio==0.7.0 cudatoolkit=11.0 -c pytorch
+pip install pysc2==1.2
+pip install pyyaml

@@ -134,8 +134,9 @@ class FullyConv(torch.nn.Module):
                 math.ceil(x_s.shape[2] * x_s.shape[3] / info_vb.shape[0])
             ).resize_(
                 x_s.shape[2], x_s.shape[3]
-        x_i.requires_grad=True
-        )  # transform info vector into 2d matrix with shape (s, s) filled with repeat values
+            )
+        x_i.require_grads = True
+          # transform info vector into 2d matrix with shape (s, s) filled with repeat values
         x_i = x_i.unsqueeze(0).unsqueeze(0)  # shape (1, 1, s, s)
         x_state = torch.cat((x_m, x_s, x_i), dim=1)  # concat along channel dimension
 
